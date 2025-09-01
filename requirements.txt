@@ -8,7 +8,7 @@ python-engineio==4.7.1
 Werkzeug==2.3.7
 openpyxl==3.1.2
 gunicorn==21.2.0
-eventlet==0.33.3
+# eventlet==0.33.3  # Python 3.13 uyumlu değil
 psycopg2-binary==2.9.7
 python-dotenv==1.0.0
 bcrypt==4.1.2

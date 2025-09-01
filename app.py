@@ -126,7 +126,7 @@ if os.environ.get('FLASK_ENV') == 'production':
     socketio = SocketIO(
         app, 
         cors_allowed_origins="*",
-        async_mode='eventlet',
+        async_mode='threading',  # eventlet yerine threading
         logger=True,
         engineio_logger=True
     )
