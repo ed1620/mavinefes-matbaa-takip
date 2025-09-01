@@ -67,10 +67,12 @@ if os.environ.get('FLASK_ENV') == 'production' and os.environ.get('REDIS_URL'):
         'CACHE_DEFAULT_TIMEOUT': 300
     }
 else:
-    # Redis yoksa simple cache kullan
+    # Redis yoksa simple cache kullan - Performance için optimize
     cache_config = {
         'CACHE_TYPE': 'simple',
-        'CACHE_DEFAULT_TIMEOUT': 300
+        'CACHE_DEFAULT_TIMEOUT': 600,  # 10 dakika
+        'CACHE_THRESHOLD': 1000,  # Cache limiti
+        'CACHE_KEY_PREFIX': 'matbaa_'
     }
 
 cache = Cache(app, config=cache_config)
@@ -131,11 +133,19 @@ if os.environ.get('FLASK_ENV') == 'production':
         app, 
         cors_allowed_origins="*",
         async_mode='threading',  # eventlet yerine threading
-        logger=True,
-        engineio_logger=True
+        logger=False,  # Performance için logger kapalı
+        engineio_logger=False,  # Performance için logger kapalı
+        ping_timeout=60,
+        ping_interval=25
     )
 else:
-    socketio = SocketIO(app, cors_allowed_origins="*")
+    socketio = SocketIO(
+        app, 
+        cors_allowed_origins="*",
+        logger=False,  # Performance için logger kapalı
+        ping_timeout=60,
+        ping_interval=25
+    )
 
 # SQLite veritabanı dosyası (development için)
 DATABASE = os.environ.get('DATABASE_PATH', 'matbaa_takip.db')
@@ -229,19 +239,30 @@ def get_db_connection():
     """Veritabanı bağlantısı oluştur - SQLite/PostgreSQL desteği"""
     try:
         if os.environ.get('FLASK_ENV') == 'production' and os.environ.get('DATABASE_URL'):
-            # PostgreSQL production
+            # PostgreSQL production - Connection pooling
             import psycopg2
             from psycopg2.extras import RealDictCursor
             
             conn = psycopg2.connect(
                 os.environ.get('DATABASE_URL'),
-                cursor_factory=RealDictCursor
+                cursor_factory=RealDictCursor,
+                # Performance optimizasyonları
+                options='-c statement_timeout=30000',  # 30 saniye timeout
+                keepalives=1,
+                keepalives_idle=30,
+                keepalives_interval=10,
+                keepalives_count=5
             )
         else:
             # SQLite development
             conn = sqlite3.connect(DATABASE, timeout=10.0)
             conn.row_factory = sqlite3.Row  # Dict-like access
             conn.execute('PRAGMA foreign_keys = ON')  # Foreign key desteği
+            # SQLite performance optimizasyonları
+            conn.execute('PRAGMA journal_mode = WAL')
+            conn.execute('PRAGMA synchronous = NORMAL')
+            conn.execute('PRAGMA cache_size = 10000')
+            conn.execute('PRAGMA temp_store = MEMORY')
         
         return conn
     except Exception as e:
