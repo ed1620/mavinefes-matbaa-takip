@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=your_super_secret_key_change_in_production
+      - EMAIL_ENABLED=false
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./logs:/app/logs
+      - ./matbaa_takip.db:/app/matbaa_takip.db
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # PostgreSQL (opsiyonel - production için)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: matbaa_takip
+  #     POSTGRES_USER: matbaa_user
+  #     POSTGRES_PASSWORD: secure_password_change_me
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+volumes:
+  redis_data:
+  # postgres_data:  # PostgreSQL için
+
+networks:
+  default:
+    driver: bridge
