@@ -42,14 +42,16 @@ app.secret_key = os.environ.get('SECRET_KEY', 'matbaa_takip_2025_secret_key')
 # csrf = CSRFProtect(app)
 
 # Rate Limiting - Production/Development
-if os.environ.get('FLASK_ENV') == 'production':
+if os.environ.get('FLASK_ENV') == 'production' and os.environ.get('REDIS_URL'):
+    # Redis varsa kullan
     limiter = Limiter(
         get_remote_address,
         app=app,
         default_limits=["200 per day", "50 per hour"],
-        storage_uri=os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+        storage_uri=os.environ.get('REDIS_URL')
     )
 else:
+    # Redis yoksa memory storage kullan
     limiter = Limiter(
         get_remote_address,
         app=app,
@@ -57,15 +59,17 @@ else:
     )
 
 # Cache Configuration - Production/Development
-if os.environ.get('FLASK_ENV') == 'production':
+if os.environ.get('FLASK_ENV') == 'production' and os.environ.get('REDIS_URL'):
+    # Redis varsa kullan
     cache_config = {
         'CACHE_TYPE': 'redis',
-        'CACHE_REDIS_URL': os.environ.get('REDIS_URL', 'redis://localhost:6379/0'),
+        'CACHE_REDIS_URL': os.environ.get('REDIS_URL'),
         'CACHE_DEFAULT_TIMEOUT': 300
     }
 else:
+    # Redis yoksa simple cache kullan
     cache_config = {
-        'CACHE_TYPE': 'simple',  # Development için
+        'CACHE_TYPE': 'simple',
         'CACHE_DEFAULT_TIMEOUT': 300
     }
 
@@ -809,10 +813,10 @@ def health_check():
         
         # Redis durumunu kontrol et (production)
         redis_status = 'n/a'
-        if os.environ.get('FLASK_ENV') == 'production':
+        if os.environ.get('FLASK_ENV') == 'production' and os.environ.get('REDIS_URL'):
             try:
                 import redis
-                r = redis.from_url(os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
+                r = redis.from_url(os.environ.get('REDIS_URL'))
                 r.ping()
                 redis_status = 'healthy'
             except:
