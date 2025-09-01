@@ -70,9 +70,9 @@ else:
     # Redis yoksa simple cache kullan - Performance için optimize
     cache_config = {
         'CACHE_TYPE': 'simple',
-        'CACHE_DEFAULT_TIMEOUT': 600,  # 10 dakika
-        'CACHE_THRESHOLD': 1000,  # Cache limiti
-        'CACHE_KEY_PREFIX': 'matbaa_'
+        'CACHE_DEFAULT_TIMEOUT': 300,  # 5 dakika (development için)
+        'CACHE_THRESHOLD': 500,  # Cache limiti (development için)
+        'CACHE_KEY_PREFIX': 'matbaa_dev_'
     }
 
 cache = Cache(app, config=cache_config)
@@ -96,8 +96,9 @@ if not app.debug:
         app.logger.setLevel(logging.INFO)
         app.logger.info('Matbaa Takip Sistemi başlatılıyor (console mode)')
 else:
-    app.logger.setLevel(logging.INFO)
-    app.logger.info('Matbaa Takip Sistemi başlatılıyor (debug mode)')
+    # Development modunda minimal logging
+    app.logger.setLevel(logging.WARNING)  # Sadece hataları göster
+    print('🚀 Matbaa Takip Sistemi başlatılıyor (development mode)')
 
 # Production/Development config
 if os.environ.get('FLASK_ENV') == 'production':
@@ -118,12 +119,12 @@ else:
 app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
-app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', 'eren1121623@gmail.com')
-app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')  # ❌ Şifre kaldırıldı!
-app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'eren1121623@gmail.com')
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME', '')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', '')
 
-# E-posta gönderme aktif/pasif (test için aktif)
-EMAIL_ENABLED = True
+# E-posta gönderme aktif/pasif - Environment variable ile
+EMAIL_ENABLED = os.environ.get('EMAIL_ENABLED', 'False').lower() == 'true'
 
 mail = Mail(app)
 
@@ -810,6 +811,28 @@ def clear_logout_message():
     if 'logout_message' in session:
         del session['logout_message']
     return jsonify({'success': True})
+
+@app.route('/test-email')
+def test_email():
+    """E-posta test endpoint'i"""
+    try:
+        # E-posta sistemi kontrolü
+        if not os.environ.get('EMAIL_ENABLED', 'False').lower() == 'true':
+            return jsonify({'error': 'E-posta sistemi kapalı'}), 400
+        
+        # Test e-postası gönder
+        msg = Message(
+            'Test E-postası - Mavi Nefes Matbaa',
+            recipients=['eren1121623@gmail.com'],
+            html='<h2>Test E-postası Başarılı!</h2><p>E-posta sistemi çalışıyor.</p>'
+        )
+        
+        mail.send(msg)
+        return jsonify({'success': True, 'message': 'Test e-postası gönderildi'})
+        
+    except Exception as e:
+        app.logger.error(f'E-posta hatası: {e}')
+        return jsonify({'error': f'E-posta hatası: {str(e)}'}), 500
 
 @app.route('/health')
 def health_check():
